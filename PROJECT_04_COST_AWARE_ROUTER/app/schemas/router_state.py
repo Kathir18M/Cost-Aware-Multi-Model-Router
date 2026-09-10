@@ -18,4 +18,8 @@ class RouterState(TypedDict, total=False):
 	escalation_reason: str | None
 	escalation_event: dict[str, Any] | None
 	retry_count: int
+	actual_cost: float
+	baseline_cost: float
+	savings: float
+	cumulative_savings: float
 	status: str

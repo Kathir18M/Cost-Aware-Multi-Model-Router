@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from app.core.config import load_settings
@@ -23,22 +24,47 @@ def get_model_pricing() -> dict[str, dict[str, float]]:
 	}
 
 
-def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> dict[str, Any]:
-	"""Calculate cost from token counts and configured prices."""
+def calculate_cost(
+	model: str | Sequence[str],
+	input_tokens: int | Sequence[int],
+	output_tokens: int | Sequence[int],
+) -> dict[str, Any]:
+	"""Calculate input, output, and total cost for one or more model calls."""
 
-	if input_tokens < 0 or output_tokens < 0:
-		raise ValueError("Token counts must not be negative")
+	models = [model] if isinstance(model, str) else list(model)
+	inputs = [input_tokens] if isinstance(input_tokens, int) else list(input_tokens)
+	outputs = [output_tokens] if isinstance(output_tokens, int) else list(output_tokens)
+	if not models or len(models) != len(inputs) or len(models) != len(outputs):
+		raise ValueError("Model and token usage sequences must have matching lengths")
 	pricing = get_model_pricing()
-	key = model.strip().lower()
-	if key not in pricing:
-		raise ValueError(f"Unsupported model: {model}")
-	cost = (
-		input_tokens * pricing[key]["input_price"]
-		+ output_tokens * pricing[key]["output_price"]
-	)
+	breakdown = []
+	for current_model, current_input, current_output in zip(models, inputs, outputs):
+		if current_input < 0 or current_output < 0:
+			raise ValueError("Token counts must not be negative")
+		key = current_model.strip().lower()
+		if key not in pricing:
+			raise ValueError(f"Unsupported model: {current_model}")
+		input_cost = current_input * pricing[key]["input_price"]
+		output_cost = current_output * pricing[key]["output_price"]
+		breakdown.append(
+			{
+				"model": key,
+				"input_tokens": current_input,
+				"output_tokens": current_output,
+				"input_cost": input_cost,
+				"output_cost": output_cost,
+				"cost": input_cost + output_cost,
+			}
+		)
+	input_total = sum(item["input_tokens"] for item in breakdown)
+	output_total = sum(item["output_tokens"] for item in breakdown)
 	return {
-		"model": key,
-		"input_tokens": input_tokens,
-		"output_tokens": output_tokens,
-		"cost": round(cost, 10),
+		"model": models[0].strip().lower() if len(models) == 1 else "multi",
+		"input_tokens": input_total,
+		"output_tokens": output_total,
+		"total_tokens": input_total + output_total,
+		"input_cost": round(sum(item["input_cost"] for item in breakdown), 10),
+		"output_cost": round(sum(item["output_cost"] for item in breakdown), 10),
+		"cost": round(sum(item["cost"] for item in breakdown), 10),
+		"breakdown": breakdown,
 	}
