@@ -1,5 +1,9 @@
-"""
-Project 04 - Cost-Aware Multi-Model Router
+"""Validated inputs accepted by task-processing chains."""
 
-TODO: Implement this module in the corresponding project phase.
-"""
+from pydantic import BaseModel, Field
+
+
+class TaskRequest(BaseModel):
+	"""Common user input for classification, extraction, summary, and Q&A."""
+
+	text: str = Field(min_length=1)
