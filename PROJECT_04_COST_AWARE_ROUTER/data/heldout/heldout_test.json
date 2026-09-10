@@ -1,3 +1,24 @@
 {
-  "examples": []
+  "examples": [
+    {"id": "cls-001", "task_type": "classification", "input": "The customer wants to cancel their subscription.", "expected_output": {"label": "cancellation"}},
+    {"id": "cls-002", "task_type": "classification", "input": "The invoice total is incorrect and needs review.", "expected_output": {"label": "billing"}},
+    {"id": "cls-003", "task_type": "classification", "input": "The user cannot sign in after resetting a password.", "expected_output": {"label": "account_access"}},
+    {"id": "cls-004", "task_type": "classification", "input": "Please tell me when my package will arrive.", "expected_output": {"label": "shipping"}},
+    {"id": "cls-005", "task_type": "classification", "input": "I would like to report a duplicate charge.", "expected_output": {"label": "billing"}},
+    {"id": "ext-001", "task_type": "extraction", "input": "Order 1042 for Ada Lovelace costs 25 USD.", "expected_output": {"fields": {"order_id": "1042", "customer": "Ada Lovelace", "currency": "USD"}}},
+    {"id": "ext-002", "task_type": "extraction", "input": "Meeting with Grace Hopper is on 2026-10-03 in Boston.", "expected_output": {"fields": {"person": "Grace Hopper", "date": "2026-10-03", "location": "Boston"}}},
+    {"id": "ext-003", "task_type": "extraction", "input": "The support ticket is T-88 and its priority is high.", "expected_output": {"fields": {"ticket_id": "T-88", "priority": "high"}}},
+    {"id": "ext-004", "task_type": "extraction", "input": "Invoice INV-7 is due on 2026-11-15 for 900 EUR.", "expected_output": {"fields": {"invoice_id": "INV-7", "due_date": "2026-11-15", "amount": "900 EUR"}}},
+    {"id": "ext-005", "task_type": "extraction", "input": "The new contact is Alan Turing at alan@example.com.", "expected_output": {"fields": {"name": "Alan Turing", "email": "alan@example.com"}}},
+    {"id": "sum-001", "task_type": "summarization", "input": "The release adds export support. It also fixes a login error. The update is available Friday.", "expected_output": {"summary": "The release adds export support, fixes login, and is available Friday."}},
+    {"id": "sum-002", "task_type": "summarization", "input": "The study tested 40 participants. Results improved after training. Researchers recommend a larger trial.", "expected_output": {"summary": "A 40-person study found training improved results and recommended a larger trial."}},
+    {"id": "sum-003", "task_type": "summarization", "input": "The project is delayed by a vendor issue. The team is reviewing alternatives and will update the schedule Monday.", "expected_output": {"summary": "A vendor issue delayed the project; alternatives are under review and a schedule update is due Monday."}},
+    {"id": "sum-004", "task_type": "summarization", "input": "The policy requires annual review. Managers approve exceptions. Employees must complete training.", "expected_output": {"summary": "The policy is reviewed annually, managers approve exceptions, and employees complete training."}},
+    {"id": "sum-005", "task_type": "summarization", "input": "The service experienced an outage for ten minutes. Engineers restored it and added monitoring.", "expected_output": {"summary": "A ten-minute outage was restored, followed by additional monitoring."}},
+    {"id": "qa-001", "task_type": "qa", "input": "What color is the sky on a clear day?", "expected_output": {"answer": "blue"}},
+    {"id": "qa-002", "task_type": "qa", "input": "How many days are in a week?", "expected_output": {"answer": "seven"}},
+    {"id": "qa-003", "task_type": "qa", "input": "What is the capital of France?", "expected_output": {"answer": "Paris"}},
+    {"id": "qa-004", "task_type": "qa", "input": "Which instrument has black and white keys?", "expected_output": {"answer": "piano"}},
+    {"id": "qa-005", "task_type": "qa", "input": "What gas do plants absorb from the atmosphere?", "expected_output": {"answer": "carbon dioxide"}}
+  ]
 }
