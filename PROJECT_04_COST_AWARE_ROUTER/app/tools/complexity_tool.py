@@ -1,5 +1,7 @@
-"""
-Project 04 - Cost-Aware Multi-Model Router
+"""Tool-facing complexity analysis wrapper."""
 
-TODO: Implement this module in the corresponding project phase.
-"""
+from app.router.complexity_analyzer import analyze_complexity
+
+
+def analyze_request_complexity(user_input: str) -> dict[str, str]:
+	return {"complexity": analyze_complexity(user_input)}
