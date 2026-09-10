@@ -5,3 +5,4 @@ streamlit
 python-dotenv
 pydantic
 pytest
+mcp
