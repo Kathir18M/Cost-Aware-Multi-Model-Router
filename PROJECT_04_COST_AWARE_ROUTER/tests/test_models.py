@@ -78,7 +78,7 @@ def test_successful_response_is_normalized_with_usage() -> None:
 def test_api_error_is_normalized_without_secret() -> None:
 	client = Mock()
 	client.messages.create.side_effect = RuntimeError(
-		"ANTHROPIC_API_KEY=sk-ant-secret-value"
+		"ANTHROPIC_API_KEY=" + "sk-ant-" + "secret-value"
 	)
 
 	result = ClaudeSonnet(
@@ -88,7 +88,7 @@ def test_api_error_is_normalized_without_secret() -> None:
 	assert result.success is False
 	assert result.content == ""
 	assert result.error is not None
-	assert "sk-ant-secret-value" not in result.error
+	assert "sk-ant-" + "secret-value" not in result.error
 	assert "[REDACTED]" in result.error
 
 
