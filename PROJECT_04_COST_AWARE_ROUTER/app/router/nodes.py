@@ -15,6 +15,12 @@ from app.router.complexity_analyzer import analyze_complexity
 from app.router.model_selector import select_model
 from app.router.task_classifier import classify_task
 from app.schemas.router_state import RouterState
+from app.services.cost_service import (
+	calculate_baseline_cost,
+	calculate_cumulative_savings,
+	calculate_request_cost,
+	calculate_savings,
+)
 
 ModelExecutor = Callable[[str, str, str], dict[str, Any]]
 logger = get_logger("escalation")
@@ -127,4 +133,22 @@ def execute_sonnet_node(
 def finalize_response_node(state: RouterState) -> RouterState:
 	"""Mark the current response as final for this routing pass."""
 
-	return {"response": state.get("response")}
+	response = state.get("response") or {}
+	input_tokens = int(response.get("input_tokens", 0) or 0)
+	output_tokens = int(response.get("output_tokens", 0) or 0)
+	actual = calculate_request_cost(
+		state.get("selected_model", "haiku"), input_tokens, output_tokens
+	)
+	baseline = calculate_baseline_cost(
+		actual["input_tokens"], actual["output_tokens"]
+	)
+	savings = calculate_savings(baseline, actual)
+	return {
+		"response": response,
+		"actual_cost": actual["cost"],
+		"baseline_cost": baseline["cost"],
+		"savings": savings,
+		"cumulative_savings": calculate_cumulative_savings(
+			float(state.get("cumulative_savings", 0.0)), savings
+		),
+	}

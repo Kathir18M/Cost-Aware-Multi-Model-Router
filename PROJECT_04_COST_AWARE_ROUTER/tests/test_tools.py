@@ -15,6 +15,7 @@ def test_cost_calculation_and_pricing() -> None:
 	result = calculate_cost("haiku", 1000, 2000)
 
 	assert result["model"] == "haiku"
+	assert result["total_tokens"] == 3000
 	assert result["cost"] == pytest.approx(
 		1000 * pricing["haiku"]["input_price"]
 		+ 2000 * pricing["haiku"]["output_price"]
