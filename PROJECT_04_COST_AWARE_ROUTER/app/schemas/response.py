@@ -1,8 +1,24 @@
-"""Structured outputs returned by task-processing chains."""
+"""Normalized model responses and structured task outputs."""
+
+from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ModelResponse(BaseModel):
+	"""Provider-independent result returned by a model wrapper."""
+
+	model_config = ConfigDict(extra="forbid")
+
+	content: str = ""
+	model: str
+	input_tokens: int | None = Field(default=None, ge=0)
+	output_tokens: int | None = Field(default=None, ge=0)
+	latency: float | None = Field(default=None, ge=0)
+	success: bool
+	error: str | None = None
 
 
 class ClassificationResponse(BaseModel):
