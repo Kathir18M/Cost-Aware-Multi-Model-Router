@@ -82,14 +82,35 @@ def get_authenticated_user(request: Request) -> dict[str, Any]:
     user_id = str(user_id)
     request.state.user_id = user_id
     request.session["user_id"] = user_id
+    email = payload.get("email") or payload.get("primary_email") or payload.get("email_address")
+    first_name = payload.get("first_name") or payload.get("given_name")
+    last_name = payload.get("last_name") or payload.get("family_name")
+    full_name = payload.get("full_name") or payload.get("name")
+    image_url = payload.get("image_url") or payload.get("picture")
+
+    identity_data = {
+        "email": email,
+        "first_name": first_name,
+        "last_name": last_name,
+        "full_name": full_name,
+        "image_url": image_url,
+    }
+
+    try:
+        from app.db.repositories.users import UserRepository
+        user_repo = UserRepository()
+        user_repo.upsert_user(user_id, identity_data)
+    except Exception as exc:
+        logger.debug("Automatic MongoDB user upsert skipped/failed: %s", exc)
+
     request.state.user = {
         "user_id": user_id,
-        "email": payload.get("email") or payload.get("primary_email") or payload.get("email_address"),
+        "email": email,
         "session_id": payload.get("sid") or payload.get("session_id"),
     }
     return {
         "user_id": user_id,
-        "email": payload.get("email") or payload.get("primary_email") or payload.get("email_address"),
+        "email": email,
         "session_id": payload.get("sid") or payload.get("session_id"),
     }
 

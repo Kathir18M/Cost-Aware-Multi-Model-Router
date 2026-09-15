@@ -12,6 +12,11 @@ flowchart TD
     FE --> CL[Clerk Authentication]
     CL --> API[FastAPI API Gateway]
 
+    API --> MDB[(MongoDB Database)]
+    MDB --> USR[Users Collection]
+    MDB --> CNN[Connectors Collection]
+    MDB --> USG[Usage Events Collection]
+
     API --> RA[Request Analyzer]
     RA --> RT[Cost-Aware Router]
 
@@ -118,6 +123,54 @@ Exposes actionable business and operational metrics via API endpoints and fronte
 - Net Financial Savings ($) & Savings Percentage (%)
 - Confidence Score Distributions & Escalation Frequencies
 - Tool Execution Counts & Provider Failure / Rate-Limit Rates
+
+---
+
+## 🗄️ MongoDB Persistence & Security Architecture
+
+The platform integrates **MongoDB** as its persistent application database layer, working seamlessly alongside **Clerk Authentication**:
+
+- **Clerk**: Authentication & Identity Provider (manages user credentials, issues JWTs, verifies sessions).
+- **MongoDB**: Application Data & Persistence Layer (stores application user profiles, preferences, connector states, usage events, and cost analytics).
+
+```
+User
+ ↓
+Clerk Authentication (JWT Verification via PyJWKClient)
+ ↓
+FastAPI Backend (Extracts verified clerk_user_id)
+ ↓
+MongoDB Database Layer
+ ├── Users Collection (clerk_user_id, email, name, routing preferences)
+ ├── Connectors Collection (clerk_user_id, provider, status, account metadata)
+ └── Usage Events Collection (request_id, clerk_user_id, model, cost, savings)
+```
+
+### MongoDB Collections Schema
+
+1. **`users` Collection**:
+   - **Purpose**: Application-level user details and routing preferences associated with Clerk users.
+   - **Unique Index**: `clerk_user_id` (UNIQUE)
+   - **Fields**: `clerk_user_id`, `email`, `first_name`, `last_name`, `full_name`, `image_url`, `created_at`, `updated_at`, `last_login_at`, `preferences` (`default_model`, `confidence_threshold`, `complexity_threshold`).
+   - **Security**: Never stores passwords, Clerk secret keys, or authentication secrets.
+
+2. **`connectors` Collection**:
+   - **Purpose**: User-scoped connector connection status and account metadata for MCP tools (GitHub, Gmail, Google Drive).
+   - **Unique Compound Index**: `(clerk_user_id, provider)` (UNIQUE)
+   - **Fields**: `clerk_user_id`, `provider`, `status` ("connected"/"disconnected"), `connected_at`, `updated_at`, `metadata`.
+   - **Security**: OAuth access and refresh tokens are never stored in plain text or returned to the frontend.
+
+3. **`usage_events` Collection**:
+   - **Purpose**: Persisted request history, model routing logs, token usage, cost accounting, and savings analytics.
+   - **Indexes**: `(clerk_user_id, created_at)`, `request_id`
+   - **Fields**: `request_id`, `clerk_user_id`, `model`, `status`, `confidence`, `escalated`, `escalation_reason`, `input_tokens`, `output_tokens`, `actual_cost`, `baseline_cost`, `savings`, `savings_percentage`, `tools_used`, `created_at`.
+
+### Security Architecture
+
+- **Backend Identity Resolution**: The frontend never dictates user identity for database operations. All queries extract `clerk_user_id` strictly from verified Clerk JWT tokens decoded server-side via `PyJWKClient`.
+- **Strict User Isolation**: Every database query on `users`, `connectors`, and `usage_events` is scoped by `clerk_user_id`. User A can never access or modify User B's connector states or cost analytics.
+- **Credential Protection**: MongoDB connection details (`MONGODB_URI`) are kept strictly in server-side environment variables and are never exposed to Next.js or `NEXT_PUBLIC_*` variables.
+- **Graceful Fault Tolerance**: Database connection managers utilize connection pooling with timeouts and connection health checks (`/health` endpoint). If MongoDB is temporarily unavailable, fallback mechanisms prevent backend crashes.
 
 ---
 

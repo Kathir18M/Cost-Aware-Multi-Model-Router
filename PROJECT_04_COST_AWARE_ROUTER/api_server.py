@@ -39,8 +39,32 @@ from app.router.agent_graph import run_agent_request
 from app.router.graph import build_graph
 from app.tools.routing_logger import log_routing_event
 from app.utils.helpers import get_project_root
+from app.db.mongodb import get_mongo_manager
+from app.db.repositories.users import UserRepository
+from app.db.repositories.connectors import ConnectorRepository
+from app.db.repositories.usage import UsageRepository
+from app.db.models import UserPreferencesUpdate
 
 app = FastAPI(title="Cost-Aware Router API", version="1.0.0")
+
+
+@app.on_event("startup")
+def startup_db_client() -> None:
+    try:
+        manager = get_mongo_manager()
+        manager.connect()
+    except Exception as exc:
+        logger.warning("MongoDB connection on startup warning: %s", exc)
+
+
+@app.on_event("shutdown")
+def shutdown_db_client() -> None:
+    try:
+        get_mongo_manager().close()
+    except Exception as exc:
+        logger.warning("MongoDB shutdown error: %s", exc)
+
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET_KEY", "dev-session-secret-change-me"),
@@ -483,56 +507,71 @@ def _fetch_google_user_info(access_token: str) -> dict[str, Any]:
 def _upsert_user_github_connection(user_key: str, access_token: str, account: dict[str, Any]) -> MCPClient:
     client = MCPClient("github", GitHubOAuthTransport(access_token))
     client.connect()
+    account_meta = {
+        "login": account.get("login"),
+        "avatar_url": account.get("avatar_url"),
+        "name": account.get("name"),
+        "html_url": account.get("html_url"),
+    }
     USER_GITHUB_CONNECTIONS[user_key] = {
         "provider": "github",
         "connected": True,
         "access_token": access_token,
-        "account": {
-            "login": account.get("login"),
-            "avatar_url": account.get("avatar_url"),
-            "name": account.get("name"),
-            "html_url": account.get("html_url"),
-        },
+        "account": account_meta,
         "client": client,
     }
+    try:
+        ConnectorRepository().save_connector_state(user_key, "github", "connected", account_meta)
+    except Exception as exc:
+        logger.debug("MongoDB connector save error for github: %s", exc)
     return client
 
 
 def _upsert_user_gmail_connection(user_key: str, access_token: str, refresh_token: str | None, expires_in: int | None, account: dict[str, Any]) -> MCPClient:
     client = MCPClient("gmail", GmailOAuthTransport(access_token))
     client.connect()
+    account_meta = {
+        "email": account.get("email"),
+        "name": account.get("name"),
+        "picture": account.get("picture"),
+    }
     USER_GMAIL_CONNECTIONS[user_key] = {
         "provider": "gmail",
         "connected": True,
         "access_token": access_token,
         "refresh_token": refresh_token,
         "expires_in": expires_in,
-        "account": {
-            "email": account.get("email"),
-            "name": account.get("name"),
-            "picture": account.get("picture"),
-        },
+        "account": account_meta,
         "client": client,
     }
+    try:
+        ConnectorRepository().save_connector_state(user_key, "gmail", "connected", account_meta)
+    except Exception as exc:
+        logger.debug("MongoDB connector save error for gmail: %s", exc)
     return client
 
 
 def _upsert_user_google_drive_connection(user_key: str, access_token: str, refresh_token: str | None, expires_in: int | None, account: dict[str, Any]) -> MCPClient:
     client = MCPClient("google_drive", GoogleDriveOAuthTransport(access_token))
     client.connect()
+    account_meta = {
+        "email": account.get("email"),
+        "name": account.get("name"),
+        "picture": account.get("picture"),
+    }
     USER_GOOGLE_DRIVE_CONNECTIONS[user_key] = {
         "provider": "google_drive",
         "connected": True,
         "access_token": access_token,
         "refresh_token": refresh_token,
         "expires_in": expires_in,
-        "account": {
-            "email": account.get("email"),
-            "name": account.get("name"),
-            "picture": account.get("picture"),
-        },
+        "account": account_meta,
         "client": client,
     }
+    try:
+        ConnectorRepository().save_connector_state(user_key, "google_drive", "connected", account_meta)
+    except Exception as exc:
+        logger.debug("MongoDB connector save error for google_drive: %s", exc)
     return client
 
 
@@ -710,8 +749,79 @@ def _safe_executor(model_name: str, task_type: str, user_input: str) -> dict[str
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict[str, Any]:
+    db_health = get_mongo_manager().health_check()
+    return {
+        "status": "ok",
+        "database": db_health,
+    }
+
+
+@app.get("/api/user/profile")
+def get_user_profile(authenticated: dict[str, Any] = Depends(get_authenticated_user)) -> dict[str, Any]:
+    user_id = str(authenticated["user_id"])
+    repo = UserRepository()
+    profile = repo.get_user_by_clerk_id(user_id)
+    if not profile:
+        profile = repo.upsert_user(user_id, identity_data=authenticated)
+    if not profile:
+        return {
+            "clerk_user_id": user_id,
+            "email": authenticated.get("email"),
+            "first_name": None,
+            "last_name": None,
+            "full_name": None,
+            "image_url": None,
+            "created_at": "",
+            "last_login_at": "",
+            "preferences": {
+                "default_model": None,
+                "confidence_threshold": None,
+                "complexity_threshold": None,
+            },
+        }
+    return {
+        "clerk_user_id": profile.get("clerk_user_id", user_id),
+        "email": profile.get("email"),
+        "first_name": profile.get("first_name"),
+        "last_name": profile.get("last_name"),
+        "full_name": profile.get("full_name"),
+        "image_url": profile.get("image_url"),
+        "created_at": profile.get("created_at", ""),
+        "last_login_at": profile.get("last_login_at", ""),
+        "preferences": profile.get("preferences", {
+            "default_model": None,
+            "confidence_threshold": None,
+            "complexity_threshold": None,
+        }),
+    }
+
+
+@app.patch("/api/user/profile")
+def update_user_profile(
+    payload: UserPreferencesUpdate,
+    authenticated: dict[str, Any] = Depends(get_authenticated_user),
+) -> dict[str, Any]:
+    user_id = str(authenticated["user_id"])
+    updates = payload.model_dump(exclude_unset=True)
+    repo = UserRepository()
+    updated = repo.update_user_preferences(user_id, updates)
+    if not updated:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "DATABASE_UNAVAILABLE", "message": "Database service is temporarily unavailable."},
+        )
+    return {
+        "clerk_user_id": updated.get("clerk_user_id", user_id),
+        "email": updated.get("email"),
+        "first_name": updated.get("first_name"),
+        "last_name": updated.get("last_name"),
+        "full_name": updated.get("full_name"),
+        "image_url": updated.get("image_url"),
+        "created_at": updated.get("created_at", ""),
+        "last_login_at": updated.get("last_login_at", ""),
+        "preferences": updated.get("preferences", {}),
+    }
 
 
 @app.post("/api/router/run")
@@ -749,6 +859,25 @@ def run_router(request: Request, payload: RouterRunRequest):
                 "message": "All configured AI providers are currently unavailable."
             }
         }
+        try:
+            UsageRepository().save_usage_event(
+                clerk_user_id=user_id,
+                event_data={
+                    "request_id": req_id,
+                    "model": None,
+                    "status": "provider_unavailable",
+                    "confidence": None,
+                    "escalated": True,
+                    "escalation_reason": body["escalation_reason"],
+                    "actual_cost": 0.0,
+                    "baseline_cost": 0.0,
+                    "savings": 0.0,
+                    "savings_percentage": 0.0,
+                    "task_type": payload.task_type,
+                },
+            )
+        except Exception as exc:
+            logger.debug("Failed saving provider_unavailable event: %s", exc)
         return JSONResponse(status_code=503, content=body)
 
     result["request_id"] = req_id
@@ -788,6 +917,27 @@ def run_router(request: Request, payload: RouterRunRequest):
         savings_percentage=savings_pct,
         status="success",
     )
+
+    try:
+        UsageRepository().save_usage_event(
+            clerk_user_id=user_id,
+            event_data={
+                "request_id": req_id,
+                "model": final_model,
+                "status": "success",
+                "confidence": confidence,
+                "escalated": escalated,
+                "escalation_reason": reason,
+                "actual_cost": actual_cost,
+                "baseline_cost": baseline_cost,
+                "savings": savings,
+                "savings_percentage": savings_pct,
+                "task_type": payload.task_type,
+                "complexity": complexity,
+            },
+        )
+    except Exception as exc:
+        logger.debug("Failed saving router usage event to MongoDB: %s", exc)
 
     result["user_id"] = user_id
     result["escalated"] = escalated
@@ -841,9 +991,27 @@ def run_agent(request: Request, payload: AgentRunRequest, authenticated: dict[st
                 "message": "All configured AI providers are currently unavailable."
             }
         }
+        try:
+            UsageRepository().save_usage_event(
+                clerk_user_id=user_id,
+                event_data={
+                    "request_id": result.get("request_id") or _request_id(),
+                    "model": None,
+                    "status": "provider_unavailable",
+                    "confidence": None,
+                    "escalated": True,
+                    "escalation_reason": body["escalation_reason"],
+                    "actual_cost": 0.0,
+                    "baseline_cost": 0.0,
+                    "savings": 0.0,
+                    "savings_percentage": 0.0,
+                },
+            )
+        except Exception as exc:
+            logger.debug("Failed saving agent provider_unavailable event: %s", exc)
         return JSONResponse(status_code=503, content=body)
 
-    return {
+    agent_resp = {
         "request_id": result.get("request_id"),
         "answer": result.get("answer"),
         "model": result.get("model"),
@@ -860,10 +1028,41 @@ def run_agent(request: Request, payload: AgentRunRequest, authenticated: dict[st
         "tool_results": result.get("tool_results", []),
     }
 
+    try:
+        UsageRepository().save_usage_event(
+            clerk_user_id=user_id,
+            event_data={
+                "request_id": agent_resp["request_id"] or _request_id(),
+                "model": agent_resp["model"],
+                "status": agent_resp["status"] or "success",
+                "confidence": agent_resp["confidence"],
+                "escalated": agent_resp["escalated"],
+                "escalation_reason": agent_resp["escalation_reason"],
+                "actual_cost": agent_resp["actual_cost"],
+                "baseline_cost": agent_resp["baseline_cost"],
+                "savings": agent_resp["savings"],
+                "savings_percentage": agent_resp["savings_percentage"],
+                "tools_used": agent_resp["tools_used"],
+            },
+        )
+    except Exception as exc:
+        logger.debug("Failed saving agent usage event: %s", exc)
+
+    return agent_resp
+
 
 @app.get("/api/dashboard")
 def get_dashboard(request: Request, authenticated: dict[str, Any] = Depends(get_authenticated_user)) -> dict[str, Any]:
-    request.state.user_id = authenticated["user_id"]
+    user_id = str(authenticated["user_id"])
+    request.state.user_id = user_id
+
+    try:
+        metrics = UsageRepository().get_user_dashboard_metrics(user_id)
+        if metrics is not None:
+            return metrics
+    except Exception as exc:
+        logger.debug("Failed retrieving user dashboard metrics from MongoDB: %s", exc)
+
     path = get_project_root() / "logs" / "router_events.jsonl"
     events: list[dict[str, Any]] = []
     if path.exists():
@@ -873,8 +1072,8 @@ def get_dashboard(request: Request, authenticated: dict[str, Any] = Depends(get_
             try:
                 parsed = json.loads(line)
                 if isinstance(parsed, dict):
-                    user_id = parsed.get("user_id") or parsed.get("authenticated_user_id") or "anon"
-                    if user_id == authenticated["user_id"]:
+                    evt_user_id = parsed.get("user_id") or parsed.get("authenticated_user_id") or "anon"
+                    if evt_user_id == user_id:
                         events.append(parsed)
             except json.JSONDecodeError:
                 continue
@@ -910,7 +1109,7 @@ def get_dashboard(request: Request, authenticated: dict[str, Any] = Depends(get_
 @app.get("/api/analytics")
 def get_analytics(request: Request, authenticated: dict[str, Any] = Depends(get_authenticated_user)) -> dict[str, Any]:
     request.state.user_id = authenticated["user_id"]
-    return get_dashboard(request)
+    return get_dashboard(request, authenticated=authenticated)
 
 
 @app.get("/api/evaluation")
@@ -937,7 +1136,16 @@ def get_evaluation(request: Request, authenticated: dict[str, Any] = Depends(get
 
 @app.get("/api/logs")
 def get_logs(request: Request, authenticated: dict[str, Any] = Depends(get_authenticated_user)) -> list[dict[str, Any]]:
-    request.state.user_id = authenticated["user_id"]
+    user_id = str(authenticated["user_id"])
+    request.state.user_id = user_id
+
+    try:
+        db_logs = UsageRepository().get_user_logs(user_id)
+        if db_logs:
+            return db_logs
+    except Exception as exc:
+        logger.debug("Failed retrieving user logs from MongoDB: %s", exc)
+
     path = get_project_root() / "logs" / "router_events.jsonl"
     if not path.exists():
         return []
@@ -948,8 +1156,8 @@ def get_logs(request: Request, authenticated: dict[str, Any] = Depends(get_authe
         try:
             payload = json.loads(line)
             if isinstance(payload, dict):
-                user_id = payload.get("user_id") or payload.get("authenticated_user_id") or "anon"
-                if user_id == authenticated["user_id"]:
+                evt_user_id = payload.get("user_id") or payload.get("authenticated_user_id") or "anon"
+                if evt_user_id == user_id:
                     logs.append(payload)
         except json.JSONDecodeError:
             continue
@@ -959,7 +1167,7 @@ def get_logs(request: Request, authenticated: dict[str, Any] = Depends(get_authe
 @app.get("/api/traces")
 def get_traces(request: Request, authenticated: dict[str, Any] = Depends(get_authenticated_user)) -> list[dict[str, Any]]:
     request.state.user_id = authenticated["user_id"]
-    return get_logs(request)
+    return get_logs(request, authenticated=authenticated)
 
 
 @app.get("/api/connectors")

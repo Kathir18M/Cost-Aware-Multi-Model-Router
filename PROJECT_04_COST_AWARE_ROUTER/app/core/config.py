@@ -40,6 +40,8 @@ class Settings:
 	gemini_output_price: float = 0.000005
 	mistral_input_price: float = 0.000003
 	mistral_output_price: float = 0.000015
+	mongodb_uri: str = "mongodb://localhost:27017"
+	mongodb_database: str = "cost_aware_router"
 	_anthropic_api_key: str = field(default="", repr=False, compare=False)
 	_google_api_key: str = field(default="", repr=False, compare=False)
 	_mistral_api_key: str = field(default="", repr=False, compare=False)
@@ -132,6 +134,8 @@ def load_settings(*, require_api_key: bool = False) -> Settings:
 		confidence_threshold=_get_threshold("CONFIDENCE_THRESHOLD", 0.7),
 		complexity_threshold=_get_threshold("COMPLEXITY_THRESHOLD", 0.7),
 		log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
+		mongodb_uri=(os.getenv("MONGODB_URI") or "mongodb://localhost:27017").strip(),
+		mongodb_database=(os.getenv("MONGODB_DATABASE") or "cost_aware_router").strip(),
 		_anthropic_api_key=anthropic_api_key,
 		_google_api_key=google_api_key,
 		_mistral_api_key=mistral_api_key,
