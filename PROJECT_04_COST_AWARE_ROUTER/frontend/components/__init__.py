@@ -1,1 +1,0 @@
-"""Reusable frontend components."""

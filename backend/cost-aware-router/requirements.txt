@@ -1,6 +1,5 @@
 langchain
 langgraph
-streamlit
 python-dotenv
 pydantic
 pytest

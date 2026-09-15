@@ -1,6 +1,7 @@
-from datetime import date
+"""Unit tests for dashboard event log loading and filtering utilities."""
 
-from frontend.pages.dashboard import filter_events, load_routing_events
+from datetime import date
+from app.utils.dashboard import filter_events, load_routing_events
 
 
 def test_empty_event_log_returns_empty_state_data(tmp_path) -> None:

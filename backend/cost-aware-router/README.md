@@ -194,7 +194,6 @@ MongoDB Database Layer
 - **Structured API Standards**: Unified request/response formats with explicit error handling and status metadata.
 - **Provider Failure & Rate-Limit Handling**: Graceful fallback strategies during upstream LLM outages or rate limits.
 - **Request Traceability**: Unique request IDs attached to all logs, events, and LangSmith traces.
-- **Streamlit & Next.js Analytics**: Dual dashboard capabilities for rapid prototyping and production analytics.
 
 ---
 
@@ -202,7 +201,7 @@ MongoDB Database Layer
 
 | Layer | Technologies |
 | :--- | :--- |
-| **Frontend UI** | Next.js (App Router), React, TypeScript, Tailwind CSS, Lucide Icons, Streamlit |
+| **Frontend UI** | Next.js (App Router), React, TypeScript, Tailwind CSS, Lucide Icons |
 | **Backend API Gateway** | Python 3.10+, FastAPI, Uvicorn, Pydantic v2, Starlette Middleware |
 | **AI Orchestration & Routing** | LangChain, LangGraph, Python `mcp` SDK |
 | **LLM Provider Models** | Google Gemini (`gemini-2.0-flash`), Mistral AI (`mistral-small-latest`) |
@@ -298,13 +297,6 @@ npm run dev
 ```
 
 Open `http://localhost:3000` in your browser to access the frontend dashboard.
-
-Alternatively, to run the lightweight Streamlit dashboard:
-
-```powershell
-# From PROJECT_04_COST_AWARE_ROUTER root directory
-streamlit run streamlit_app.py
-```
 
 ### 5. Running Automated Tests
 

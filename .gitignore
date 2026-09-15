@@ -1,0 +1,22 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Environment
+.env
+*.log
+
+# IDE
+.idea/
+.vscode/
+.DS_Store

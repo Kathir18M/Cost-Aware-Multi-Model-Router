@@ -1,1 +1,0 @@
-"""Placeholder page modules for future dashboard surfaces."""
