@@ -19,6 +19,8 @@ class ModelResponse(BaseModel):
 	latency: float | None = Field(default=None, ge=0)
 	success: bool
 	error: str | None = None
+	error_type: str | None = None
+	retry_after_seconds: int | None = None
 
 
 class ClassificationResponse(BaseModel):

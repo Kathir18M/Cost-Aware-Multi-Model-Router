@@ -1,13 +1,11 @@
-"""Shared Anthropic model wrapper implementation."""
+"""Compatibility wrapper for legacy model names without requiring Anthropic."""
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Mapping, Sequence
-import re
 from typing import Any
-
-import anthropic
 
 from app.core.config import Settings, load_settings
 from app.schemas.response import ModelResponse
@@ -40,10 +38,10 @@ class ClaudeModel:
 		if client is not None:
 			self.client = client
 		else:
-			resolved_settings = settings or load_settings(require_api_key=True)
-			self.client = anthropic.Anthropic(
-				api_key=resolved_settings._anthropic_api_key
-			)
+			resolved_settings = settings or load_settings()
+			if not resolved_settings.has_google_api_key and not resolved_settings.has_mistral_api_key:
+				raise ValueError("No LLM provider is configured.")
+			self.client = client
 
 	def invoke(self, prompt: Prompt, *, system: str | None = None) -> ModelResponse:
 		"""Send a prompt and normalize the provider response or error."""
@@ -101,15 +99,7 @@ class ClaudeModel:
 
 	@staticmethod
 	def _is_retryable(error: Exception) -> bool:
-		return isinstance(
-			error,
-			(
-				anthropic.APIConnectionError,
-				anthropic.APITimeoutError,
-				anthropic.InternalServerError,
-				anthropic.RateLimitError,
-			),
-		)
+		return isinstance(error, (TimeoutError, ConnectionError, OSError)) or "429" in str(error) or "rate limit" in str(error).lower()
 
 	@staticmethod
 	def _safe_error_message(error: Exception) -> str:

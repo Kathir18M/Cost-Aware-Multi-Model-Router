@@ -9,19 +9,31 @@ from app.core.config import load_settings
 
 
 def get_model_pricing() -> dict[str, dict[str, float]]:
-	"""Return configured input/output prices without exposing secrets."""
+	"""Return configured Gemini/Mistral input/output prices without exposing secrets."""
 
 	settings = load_settings()
-	return {
-		"haiku": {
-			"input_price": settings.haiku_input_price,
-			"output_price": settings.haiku_output_price,
+	pricing = {
+		"gemini": {
+			"input_price": settings.gemini_input_price,
+			"output_price": settings.gemini_output_price,
 		},
-		"sonnet": {
-			"input_price": settings.sonnet_input_price,
-			"output_price": settings.sonnet_output_price,
+		"mistral": {
+			"input_price": settings.mistral_input_price,
+			"output_price": settings.mistral_output_price,
 		},
 	}
+	pricing["haiku"] = pricing["gemini"]
+	pricing["sonnet"] = pricing["mistral"]
+	return pricing
+
+
+def _normalize_model_name(model: str) -> str:
+	key = model.strip().lower()
+	if key in {"haiku", "gemini"} or key.startswith("gemini"):
+		return "gemini"
+	if key in {"sonnet", "mistral"} or key.startswith("mistral"):
+		return "mistral"
+	return key
 
 
 def calculate_cost(
@@ -41,7 +53,7 @@ def calculate_cost(
 	for current_model, current_input, current_output in zip(models, inputs, outputs):
 		if current_input < 0 or current_output < 0:
 			raise ValueError("Token counts must not be negative")
-		key = current_model.strip().lower()
+		key = _normalize_model_name(str(current_model))
 		if key not in pricing:
 			raise ValueError(f"Unsupported model: {current_model}")
 		input_cost = current_input * pricing[key]["input_price"]
@@ -59,7 +71,7 @@ def calculate_cost(
 	input_total = sum(item["input_tokens"] for item in breakdown)
 	output_total = sum(item["output_tokens"] for item in breakdown)
 	return {
-		"model": models[0].strip().lower() if len(models) == 1 else "multi",
+		"model": _normalize_model_name(str(models[0])) if len(models) == 1 else "multi",
 		"input_tokens": input_total,
 		"output_tokens": output_total,
 		"total_tokens": input_total + output_total,

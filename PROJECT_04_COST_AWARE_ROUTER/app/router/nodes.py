@@ -51,10 +51,13 @@ def execute_model_node(
 			},
 			"status": STATUS_FAILED,
 		}
+	model_input = state["user_input"]
+	if state.get("tool_result") is not None:
+		model_input += f"\nExternal MCP tool result:\n{state['tool_result']}"
 	response, model, retries, technical_fallback = execute_with_fallback(
 		executor,
 		task_type=state["task_type"],
-		user_input=state["user_input"],
+		user_input=model_input,
 		initial_model=state["selected_model"],
 	)
 	return {
@@ -76,12 +79,22 @@ def check_confidence_node(state: RouterState) -> RouterState:
 		complexity=state.get("complexity", ""),
 		response_valid=valid,
 	)
-	escalation_required = reason is not None and state.get("selected_model") != "sonnet"
+	initial_model = state.get("initial_model", "gemini")
+	selected_model = state.get("selected_model", "gemini")
+	technical_fallback = initial_model != selected_model
+
+	if technical_fallback and not reason:
+		reason = f"{initial_model.capitalize()} provider failure" if initial_model == "gemini" else "Model fallback"
+
+	escalation_required = (reason is not None and selected_model != "mistral")
+	if technical_fallback:
+		escalation_required = True
+
 	event = None
-	if escalation_required:
+	if escalation_required or technical_fallback:
 		event = build_escalation_event(
 			request_id=state.get("request_id", "unknown"),
-			initial_model=state.get("initial_model", "haiku"),
+			initial_model=initial_model,
 			confidence=confidence,
 			threshold=threshold,
 			reason=reason or "Escalation required",
@@ -96,14 +109,14 @@ def check_confidence_node(state: RouterState) -> RouterState:
 		"escalation_required": escalation_required,
 		"escalation_reason": reason,
 		"escalation_event": event,
-		"status": STATUS_ESCALATED if escalation_required else state.get("status", STATUS_ACCEPTED),
+		"status": state.get("status") if state.get("status") == STATUS_FALLBACK else (STATUS_ESCALATED if escalation_required else state.get("status", STATUS_ACCEPTED)),
 	}
 
 
 def route_after_confidence(state: RouterState) -> str:
-	"""Choose one Sonnet escalation or finish without looping."""
+	"""Choose one Mistral escalation or finish without looping."""
 
-	if state.get("escalation_required") and state.get("selected_model") != "sonnet":
+	if state.get("escalation_required") and state.get("selected_model") != "mistral":
 		return "execute_sonnet"
 	return "finalize_response"
 
@@ -111,21 +124,21 @@ def route_after_confidence(state: RouterState) -> str:
 def execute_sonnet_node(
 	state: RouterState, *, executor: ModelExecutor | None = None
 ) -> RouterState:
-	"""Execute one intelligent Sonnet escalation without recursive fallback."""
+	"""Execute one Mistral escalation without recursive fallback."""
 
 	if executor is None:
 		return {
-			"selected_model": "sonnet",
+			"selected_model": "mistral",
 			"response": {"content": "", "success": False, "error": "No model executor configured"},
 			"status": STATUS_FAILED,
 		}
 	try:
-		response = executor("sonnet", state["task_type"], state["user_input"])
-		return {"selected_model": "sonnet", "response": response}
+		response = executor("mistral", state["task_type"], state["user_input"])
+		return {"selected_model": "mistral", "response": response}
 	except Exception:
 		return {
-			"selected_model": "sonnet",
-			"response": {"content": "", "success": False, "error": "Sonnet escalation failed"},
+			"selected_model": "mistral",
+			"response": {"content": "", "success": False, "error": "Mistral escalation failed"},
 			"status": STATUS_FAILED,
 		}
 
@@ -137,7 +150,7 @@ def finalize_response_node(state: RouterState) -> RouterState:
 	input_tokens = int(response.get("input_tokens", 0) or 0)
 	output_tokens = int(response.get("output_tokens", 0) or 0)
 	actual = calculate_request_cost(
-		state.get("selected_model", "haiku"), input_tokens, output_tokens
+		state.get("selected_model", "gemini"), input_tokens, output_tokens
 	)
 	baseline = calculate_baseline_cost(
 		actual["input_tokens"], actual["output_tokens"]

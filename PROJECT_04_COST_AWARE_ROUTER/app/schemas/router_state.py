@@ -23,3 +23,8 @@ class RouterState(TypedDict, total=False):
 	savings: float
 	cumulative_savings: float
 	status: str
+	tool_required: bool
+	available_tools: list[dict[str, Any]]
+	selected_tool: str | None
+	tool_result: Any
+	tool_error: str | None

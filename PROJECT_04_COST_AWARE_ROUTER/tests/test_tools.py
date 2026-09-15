@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from app.core.config import load_settings
 from app.tools.cost_calculator import calculate_cost, get_model_pricing
 from app.tools.evaluation_tool import evaluate_response
 from app.tools.model_policy_tool import check_model_policy
@@ -9,16 +10,20 @@ from app.tools.routing_logger import log_routing_event
 from app.tools.statistics_tool import get_router_statistics
 from app.tools.token_counter import count_tokens
 
+settings = load_settings()
+GEMINI = "gemini"
+MISTRAL = "mistral"
+
 
 def test_cost_calculation_and_pricing() -> None:
 	pricing = get_model_pricing()
-	result = calculate_cost("haiku", 1000, 2000)
+	result = calculate_cost(GEMINI, 1000, 2000)
 
-	assert result["model"] == "haiku"
+	assert result["model"] == GEMINI
 	assert result["total_tokens"] == 3000
 	assert result["cost"] == pytest.approx(
-		1000 * pricing["haiku"]["input_price"]
-		+ 2000 * pricing["haiku"]["output_price"]
+		1000 * pricing[GEMINI]["input_price"]
+		+ 2000 * pricing[GEMINI]["output_price"]
 	)
 
 
@@ -36,14 +41,14 @@ def test_token_counter_and_evaluation_are_serializable() -> None:
 
 
 def test_policy_tool() -> None:
-	assert check_model_policy("qa", "high", 0.9)["recommended_model"] == "sonnet"
-	assert check_model_policy("qa", "low", 0.9)["recommended_model"] == "haiku"
+	assert check_model_policy("qa", "high", 0.9)["recommended_model"] == MISTRAL
+	assert check_model_policy("qa", "low", 0.9)["recommended_model"] == GEMINI
 
 
 def test_routing_log_and_statistics(tmp_path) -> None:
 	path = tmp_path / "events.jsonl"
-	log_routing_event("req-1", "haiku", "sonnet", 0.4, "low confidence", 0.02, log_path=path)
-	log_routing_event("req-2", "haiku", "haiku", 0.9, None, 0.01, log_path=path)
+	log_routing_event("req-1", GEMINI, MISTRAL, 0.4, "low confidence", 0.02, log_path=path)
+	log_routing_event("req-2", GEMINI, GEMINI, 0.9, None, 0.01, log_path=path)
 
 	assert len(path.read_text(encoding="utf-8").splitlines()) == 2
 	stats = get_router_statistics(log_path=path)

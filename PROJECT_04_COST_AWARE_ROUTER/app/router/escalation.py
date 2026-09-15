@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from app.core.constants import COMPLEXITY_HIGH, MODEL_SONNET
+from app.core.constants import COMPLEXITY_HIGH, MODEL_GEMINI, MODEL_MISTRAL
 
 
 def escalation_reason(
@@ -14,7 +14,7 @@ def escalation_reason(
 	if not response_valid:
 		return "Response validation failed"
 	if complexity == COMPLEXITY_HIGH:
-		return "High complexity requires Sonnet"
+		return "High complexity requires Mistral"
 	if confidence < threshold:
 		return f"Low confidence: {confidence:.2f} < {threshold:.2f}"
 	return None
@@ -37,7 +37,7 @@ def build_escalation_event(
 	return {
 		"request_id": request_id,
 		"initial_model": initial_model,
-		"final_model": MODEL_SONNET,
+		"final_model": MODEL_MISTRAL,
 		"confidence": confidence,
 		"threshold": threshold,
 		"reason": reason,

@@ -6,25 +6,25 @@ from app.core.constants import (
 	COMPLEXITY_HIGH,
 	COMPLEXITY_LOW,
 	COMPLEXITY_MEDIUM,
-	MODEL_HAIKU,
-	MODEL_SONNET,
+	MODEL_GEMINI,
+	MODEL_MISTRAL,
 )
 
 
 def select_model(
 	complexity: str,
 	*,
-	medium_complexity_model: str = MODEL_HAIKU,
+	medium_complexity_model: str = MODEL_GEMINI,
 ) -> str:
-	"""Select Haiku for low/medium work and Sonnet for high complexity."""
+	"""Select the initial provider from the active Gemini/Mistral routing policy."""
 
 	if complexity == COMPLEXITY_HIGH:
-		return MODEL_SONNET
+		return MODEL_MISTRAL
 	if complexity == COMPLEXITY_LOW:
-		return MODEL_HAIKU
+		return MODEL_GEMINI
 	if complexity == COMPLEXITY_MEDIUM and medium_complexity_model in {
-		MODEL_HAIKU,
-		MODEL_SONNET,
+		MODEL_GEMINI,
+		MODEL_MISTRAL,
 	}:
 		return medium_complexity_model
 	raise ValueError(f"Unsupported complexity or model policy: {complexity}")

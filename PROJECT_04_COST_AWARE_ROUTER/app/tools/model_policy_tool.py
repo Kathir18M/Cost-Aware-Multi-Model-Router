@@ -1,6 +1,6 @@
 """Policy recommendation tool; LangGraph remains the policy executor."""
 
-from app.core.constants import COMPLEXITY_HIGH, MODEL_HAIKU, MODEL_SONNET
+from app.core.constants import COMPLEXITY_HIGH, MODEL_GEMINI, MODEL_MISTRAL
 
 
 def check_model_policy(task_type: str, complexity: str, confidence: float) -> dict[str, str]:
@@ -9,5 +9,5 @@ def check_model_policy(task_type: str, complexity: str, confidence: float) -> di
 	if not 0 <= confidence <= 1:
 		raise ValueError("confidence must be between 0 and 1")
 	if complexity == COMPLEXITY_HIGH:
-		return {"recommended_model": MODEL_SONNET, "reason": "High complexity"}
-	return {"recommended_model": MODEL_HAIKU, "reason": "Haiku is sufficient for this complexity"}
+		return {"recommended_model": MODEL_MISTRAL, "reason": "High complexity"}
+	return {"recommended_model": MODEL_GEMINI, "reason": "Gemini is sufficient for this complexity"}

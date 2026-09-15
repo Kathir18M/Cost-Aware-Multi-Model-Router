@@ -13,9 +13,9 @@ def test_mcp_tool_discovery_and_dispatch() -> None:
 
 	assert {"calculate_cost", "evaluate_response", "check_model_policy"} <= names
 	result = server.call_tool(
-		"calculate_cost", {"model": "haiku", "input_tokens": 10, "output_tokens": 5}
+		"calculate_cost", {"model": "gemini", "input_tokens": 10, "output_tokens": 5}
 	)
-	assert result["model"] == "haiku"
+	assert result["model"] == "gemini"
 	assert json.dumps(result)
 
 

@@ -4,10 +4,9 @@ from app.core.constants import (
 	COMPLEXITY_HIGH,
 	COMPLEXITY_LOW,
 	COMPLEXITY_MEDIUM,
-	MODEL_HAIKU,
-	MODEL_SONNET,
+	MODEL_GEMINI,
+	MODEL_MISTRAL,
 	STATUS_ACCEPTED,
-	STATUS_ESCALATED,
 )
 from app.router.graph import build_graph
 from app.router.model_selector import select_model
@@ -15,10 +14,10 @@ from app.router.nodes import check_confidence_node
 
 
 def test_model_selection_policy() -> None:
-	assert select_model(COMPLEXITY_LOW) == MODEL_HAIKU
-	assert select_model(COMPLEXITY_MEDIUM) == MODEL_HAIKU
-	assert select_model(COMPLEXITY_MEDIUM, medium_complexity_model=MODEL_SONNET) == MODEL_SONNET
-	assert select_model(COMPLEXITY_HIGH) == MODEL_SONNET
+	assert select_model(COMPLEXITY_LOW) == MODEL_GEMINI
+	assert select_model(COMPLEXITY_MEDIUM) == MODEL_GEMINI
+	assert select_model(COMPLEXITY_MEDIUM, medium_complexity_model=MODEL_MISTRAL) == MODEL_MISTRAL
+	assert select_model(COMPLEXITY_HIGH) == MODEL_MISTRAL
 
 
 def test_invalid_complexity_policy() -> None:
@@ -44,13 +43,12 @@ def test_compiled_graph_runs_serializable_state() -> None:
 
 	assert result["task_type"] == "summarization"
 	assert result["complexity"] == COMPLEXITY_LOW
-	assert result["selected_model"] == MODEL_HAIKU
-	assert result["initial_model"] == MODEL_HAIKU
-	assert result["selected_model"] == MODEL_HAIKU
+	assert result["selected_model"] == MODEL_GEMINI
+	assert result["initial_model"] == MODEL_GEMINI
 	assert result["confidence"] >= 0.7
 	assert result["escalation_required"] is False
 	assert result["status"] == STATUS_ACCEPTED
-	assert calls == [(MODEL_HAIKU, "summarization", "Summarize this report")]
+	assert calls == [(MODEL_GEMINI, "summarization", "Summarize this report")]
 
 
 def test_graph_rejects_invalid_input() -> None:

@@ -16,7 +16,7 @@ def evaluate_strategy(examples: list[dict[str, Any]], strategy: Strategy, name: 
 	records = []
 	for example in examples:
 		prediction = dict(strategy(dict(example)))
-		model = str(prediction.get("model", "haiku"))
+		model = str(prediction.get("model", "gemini"))
 		input_tokens = int(prediction.get("input_tokens", count_tokens(example["input"])))
 		output_field = prediction.get("answer") or prediction.get("summary") or prediction.get("content", "")
 		output_tokens = int(prediction.get("output_tokens", count_tokens(str(output_field))))

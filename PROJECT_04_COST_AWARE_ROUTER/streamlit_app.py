@@ -5,9 +5,13 @@ from __future__ import annotations
 import json
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import uuid4
 
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
 
 from app.core.config import ConfigurationError, load_settings
 from app.models.model_registry import get_model
@@ -112,8 +116,8 @@ def _render_kpis(history: list[dict]) -> None:
 	columns = st.columns(8)
 	values = [
 		("Total Requests", len(history)),
-		("Haiku Usage", sum(row["Final Model"] == "haiku" for row in history)),
-		("Sonnet Usage", sum(row["Final Model"] == "sonnet" for row in history)),
+		("Gemini Usage", sum(row["Final Model"] == "gemini" for row in history)),
+		("Mistral Usage", sum(row["Final Model"] == "mistral" for row in history)),
 		("Escalation Rate", f"{stats['escalation_rate']:.1%}"),
 		("Actual Cost", f"${actual:.6f}"),
 		("Baseline Cost", f"${baseline:.6f}"),
@@ -167,8 +171,8 @@ def main() -> None:
 				st.error(result["response"].get("error", "The model request failed"))
 			else:
 				st.success("Request completed")
-		except ConfigurationError:
-			st.error("An Anthropic API key is required to process requests.")
+		except ConfigurationError as error:
+			st.error(str(error))
 		except ValueError as error:
 			st.error(str(error))
 		except Exception:
@@ -187,7 +191,7 @@ def main() -> None:
 		):
 			column.metric(label, latest[key])
 		st.caption(f"Reason: {latest['Escalation Reason'] or 'No escalation'}")
-		st.write({"Actual cost": latest["Cost"], "Baseline Sonnet cost": latest["Baseline"], "Savings": latest["Savings"], "Latency": latest["Latency"]})
+		st.write({"Actual cost": latest["Cost"], "Baseline Mistral cost": latest["Baseline"], "Savings": latest["Savings"], "Latency": latest["Latency"]})
 
 	_render_kpis(history)
 	_render_charts(history)

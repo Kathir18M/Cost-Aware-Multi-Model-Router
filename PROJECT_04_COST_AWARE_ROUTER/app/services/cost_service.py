@@ -19,9 +19,9 @@ def calculate_request_cost(
 
 
 def calculate_baseline_cost(input_tokens: int, output_tokens: int) -> dict[str, Any]:
-	"""Calculate what the same token usage would cost using Sonnet only."""
+	"""Calculate what the same token usage would cost using Mistral only."""
 
-	return calculate_cost("sonnet", input_tokens, output_tokens)
+	return calculate_cost("mistral", input_tokens, output_tokens)
 
 
 def _cost_value(value: float | dict[str, Any]) -> float:

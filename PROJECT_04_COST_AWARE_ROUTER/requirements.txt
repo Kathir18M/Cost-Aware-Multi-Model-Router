@@ -1,8 +1,13 @@
 langchain
 langgraph
-anthropic
 streamlit
 python-dotenv
 pydantic
 pytest
 mcp
+langchain-google-genai
+langchain-mistralai
+plotly
+fastapi
+uvicorn
+itsdangerous
